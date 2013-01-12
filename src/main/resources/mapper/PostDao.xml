@@ -1,0 +1,143 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.baobaotao.dao.PostDao">
+    <cache
+            eviction="LRU"
+            flushInterval="60000"
+            size="512"
+            readOnly="true"/>
+    <!-- 定义公共的sql-->
+    <sql id="selectPost">
+        SELECT
+            A.post_id       AS postId,
+            A.board_id      AS boardId,
+            A.post_type     AS postType,
+            A.post_title    AS postTitle,
+            A.post_text     AS postText,
+            A.create_time   AS createTime,
+            B.user_id       AS user_userId,
+            B.user_name     AS user_userName,
+            B.password      AS user_password,
+            B.user_type     AS user_userType,
+            B.locked        AS user_locked,
+            B.credit        AS user_credit,
+            B.last_visit    AS user_lastVisit,
+            B.last_ip       AS user_lastIp,
+            C.topic_id      AS topic_topicId,
+            C.board_id      AS topic_boardId,
+            C.topic_title   AS topic_topicTitle,
+            C.create_time   AS topic_createTime,
+            C.last_post     AS topic_lastPost,
+            C.topic_views   AS topic_topicViews,
+            C.topic_replies AS topic_topicReplies,
+            C.digest        AS topic_digest
+        FROM
+                t_post A
+                LEFT OUTER JOIN t_user B
+                    ON A.user_id = B.user_id
+                LEFT OUTER JOIN t_topic C
+                    ON A.topic_id = C.topic_id
+    </sql>
+    <resultMap id="postResult" type="post">
+        <id property="postId" column="postId"/>
+        <result property="boardId" column="boardId"/>
+        <result property="postType" column="postType"/>
+        <result property="postTitle" column="postTitle"/>
+        <result property="postText" column="postText"/>
+        <result property="createTime" column="createTime"/>
+        <association property="user" javaType="user" columnPrefix="user_">
+            <id property="userId" column="userId"/>
+            <result property="userName" column="userName"/>
+            <result property="password" column="password"/>
+            <result property="userType" column="userType"/>
+            <result property="locked" column="locked"/>
+            <result property="credit" column="credit"/>
+            <result property="lastVisit" column="lastVisit"/>
+            <result property="lastIp" column="lastIp"/>
+        </association>
+        <association property="topic" javaType="topic" columnPrefix="topic_">
+            <id property="topicId" column="topicId"/>
+            <result property="boardId" column="boardId"/>
+            <result property="topicTitle" column="topicTitle"/>
+            <result property="createTime" column="createTime"/>
+            <result property="lastPost" column="lastPost"/>
+            <result property="topicViews" column="views"/>
+            <result property="topicReplies" column="replies"/>
+            <result property="digest" column="digest"/>
+        </association>
+    </resultMap>
+
+    <!-- 根据id获取单个帖子-->
+    <select id="searchById" resultMap="postResult" parameterType="int">
+        <include refid="selectPost"/>
+        WHERE A.post_id = #{id}
+    </select>
+
+    <!-- 获取所有的帖子列表-->
+    <select id="searchAll" resultMap="postResult">
+        <include refid="selectPost"/>
+    </select>
+
+    <!-- 根据条件检索帖子-->
+    <select id="search" resultMap="postResult" parameterType="post">
+        <include refid="selectPost"/>
+        <where>
+            <if test="postTitle != null">
+                A.post_title = #{postTitle}
+            </if>
+        </where>
+    </select>
+
+    <!-- 插入一个帖子信息-->
+    <insert id="insert" parameterType="post" useGeneratedKeys="true" keyProperty="postId">
+        INSERT INTO t_post (board_id, topic_id, user_id, post_type, post_title, post_text, create_time)
+            VALUES (#{boardId}, #{topic.topicId}, #{user.userId}, #{postType}, #{postTitle}, #{postText}, #{createTime})
+    </insert>
+
+    <!-- 更新一个帖子信息-->
+    <update id="update" parameterType="post">
+        UPDATE t_post
+        SET board_id = #{boardId}, topic_id=#{topic.topicId}, user_id=#{user.userId}, post_type = #{postType},
+            post_title = #{postTitle}, post_text = #{postText}, create_time = #{createTime}
+        WHERE post_id = #{postId}
+    </update>
+
+    <!-- 保存一个帖子-->
+    <insert id="save" parameterType="post" useGeneratedKeys="true" keyProperty="postId">
+        <choose>
+            <when test="postId != null">
+                INSERT INTO t_post(post_id, board_id, topic_id, user_id, post_type, post_title, post_text, create_time)
+                VALUES (#{postId}, #{boardId}, #{topic.topicId}, #{user.userId}, #{postType}, #{postTitle}, #{postText},
+                    #{createTime})
+                ON DUPLICATE KEY
+                UPDATE board_id = #{boardId}, topic_id=#{topic.topicId}, user_id=#{user.userId}, post_type = #{postType},
+                    post_title = #{postTitle}, post_text = #{postText}, create_time = #{createTime}
+            </when>
+            <otherwise>
+                INSERT INTO t_post(board_id, topic_id, user_id, post_type, post_title, post_text, create_time)
+                VALUES (#{boardId}, #{topic.topicId}, #{user.userId}, #{postType}, #{postTitle}, #{postText},
+                #{createTime})
+            </otherwise>
+        </choose>
+    </insert>
+
+    <!-- 删除一个帖子-->
+    <delete id="delete" parameterType="post">
+        DELETE FROM t_post
+        WHERE post_id = #{postId}
+    </delete>
+
+    <!--*******自定义方法********-->
+    <!-- 分页检索 -->
+    <select id="getPagedPosts" parameterType="int" resultMap="postResult">
+        <include refid="selectPost"/>
+        WHERE A.topic_id = #{id}
+    </select>
+    <!-- 删除该主题下的所有帖子 -->
+    <select id="deleteTopicPosts" parameterType="int">
+        DELETE FROM t_post
+        WHERE topic_id = #{id}
+    </select>
+
+</mapper>

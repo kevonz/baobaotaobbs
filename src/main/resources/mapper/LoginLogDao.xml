@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.baobaotao.dao.LoginLogDao">
+    <cache
+            eviction="LRU"
+            flushInterval="60000"
+            size="512"
+            readOnly="true"/>
+    <!-- 定义公共的sql-->
+    <sql id="selectLoginLog">
+        SELECT
+            A.login_log_id   AS loginLogId,
+            A.ip             AS ip,
+            A.login_datetime AS loginDate,
+            A.user_id        AS userId,
+            B.user_name      AS userName,
+            B.password       AS password
+        FROM
+                t_login_log A
+                LEFT OUTER JOIN t_user B
+                    ON A.user_id = B.user_id
+    </sql>
+    <resultMap id="loginLogResult" type="loginLog">
+        <id property="loginLogId" column="loginLogId"/>
+        <result property="ip" column="ip"/>
+        <result property="loginDate" column="loginDate"/>
+        <association property="user" javaType="user">
+            <id property="userId" column="userId"/>
+            <result property="userName" column="userName"/>
+            <result property="password" column="password"/>
+        </association>
+    </resultMap>
+
+    <!-- 根据id获取单个登录日志-->
+    <select id="searchById" resultMap="loginLogResult" parameterType="int">
+        <include refid="selectLoginLog"/>
+        WHERE A.login_log_id = #{id}
+    </select>
+
+    <!-- 获取所有的登录日志列表-->
+    <select id="searchAll" resultMap="loginLogResult">
+        <include refid="selectLoginLog"/>
+    </select>
+
+    <!-- 根据条件检索登录日志-->
+    <select id="search" resultMap="loginLogResult" parameterType="loginLog">
+        <include refid="selectLoginLog"/>
+        <where>
+            <choose>
+                <when test="loginDateFrom != null and loginDateTo == null">
+                    A.login_datetime &gt; #{loginDateFrom}
+                </when>
+                <when test="loginDateFrom == null and loginDateTo != null">
+                    A.login_datetime &lt; #{loginDateTo}
+                </when>
+                <otherwise>
+                    A.login_datetime BETWEEN #{loginDateFrom} AND #{loginDateTo}
+                </otherwise>
+            </choose>
+            <if test="ip != null">
+                AND A.ip = #{ip}
+            </if>
+        </where>
+    </select>
+
+    <!-- 插入一个登录日志信息-->
+    <insert id="insert" parameterType="loginLog">
+        INSERT INTO t_login_log (user_id, ip, login_datetime)
+            VALUES (#{user.userId}, #{ip}, #{loginDate})
+    </insert>
+
+    <!-- 更新一个登录日志信息-->
+    <update id="update" parameterType="loginLog">
+        UPDATE t_login_log
+        SET user_id = #{user.userId}, ip = #{ip}, login_datetime = #{loginDate}
+        WHERE login_log_id = #{loginLogId}
+    </update>
+
+    <!-- 保存一个登录日志-->
+    <insert id="save" parameterType="loginLog">
+        <choose>
+            <when test="loginLogId != null">
+                INSERT INTO t_login_log(login_log_id, user_id, ip, login_datetime)
+                VALUES (#{loginLogId}, #{user.userId}, #{ip}, #{loginDate})
+                ON DUPLICATE KEY
+                UPDATE user_id=#{user.userId}, ip=#{ip}, login_datetime=#{loginDate}
+            </when>
+            <otherwise>
+                INSERT INTO t_login_log(user_id, ip, login_datetime)
+                VALUES (#{user.userId}, #{ip}, #{loginDate})
+            </otherwise>
+        </choose>
+    </insert>
+
+    <!-- 删除一个登录日志-->
+    <delete id="delete" parameterType="loginLog">
+        DELETE FROM t_login_log
+        WHERE login_log_id = #{loginLogId}
+    </delete>
+
+</mapper>

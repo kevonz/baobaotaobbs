@@ -1,0 +1,134 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.baobaotao.dao.TopicDao">
+    <cache
+            eviction="LRU"
+            flushInterval="60000"
+            size="512"
+            readOnly="true"/>
+    <!-- 定义公共的sql-->
+    <sql id="selectTopic">
+        SELECT
+            A.topic_id      AS topicId,
+            A.board_id      AS boardId,
+            A.topic_title   AS topicTitle,
+            A.user_id       AS userId,
+            A.create_time   AS createTime,
+            A.last_post     AS lastPost,
+            A.topic_views   AS topicViews,
+            A.topic_replies AS topicReplies,
+            A.digest        AS digest,
+            B.user_id       AS user_userId,
+            B.user_name     AS user_userName,
+            B.password      AS user_password,
+            B.user_type     AS user_userType,
+            B.locked        AS user_locked,
+            B.credit        AS user_credit,
+            B.last_visit    AS user_lastVisit,
+            B.last_ip       AS user_lastIp
+        FROM
+                t_topic A
+                LEFT OUTER JOIN t_user B
+                    ON A.user_id = B.user_id
+    </sql>
+    <resultMap id="topicResult" type="topic">
+        <id property="topicId" column="topicId"/>
+        <result property="boardId" column="boardId"/>
+        <result property="topicTitle" column="topicTitle"/>
+        <result property="userId" column="userId"/>
+        <result property="createTime" column="createTime"/>
+        <result property="lastPost" column="lastPost"/>
+        <result property="views" column="topicViews"/>
+        <result property="replies" column="topicReplies"/>
+        <result property="digest" column="digest"/>
+        <association property="user" javaType="user" columnPrefix="user_">
+            <id property="userId" column="userId"/>
+            <result property="userName" column="userName"/>
+            <result property="password" column="password"/>
+            <result property="userType" column="userType"/>
+            <result property="locked" column="locked"/>
+            <result property="credit" column="credit"/>
+            <result property="lastVisit" column="lastVisit"/>
+            <result property="lastIp" column="lastIp"/>
+        </association>
+    </resultMap>
+
+    <!-- 根据id获取单个话题-->
+    <select id="searchById" resultMap="topicResult" parameterType="int">
+        <include refid="selectTopic"/>
+        WHERE A.topic_id = #{id}
+    </select>
+
+    <!-- 获取所有的话题列表-->
+    <select id="searchAll" resultMap="topicResult">
+        <include refid="selectTopic"/>
+    </select>
+
+    <!-- 根据条件检索话题-->
+    <select id="search" resultMap="topicResult" parameterType="topic">
+        <include refid="selectTopic"/>
+        <where>
+            <if test="topicTitle != null">
+                A.topic_title = #{topicTitle}
+            </if>
+        </where>
+    </select>
+
+    <!-- 插入一个话题信息-->
+    <insert id="insert" parameterType="topic" useGeneratedKeys="true" keyProperty="topicId">
+        INSERT INTO t_topic (board_id, topic_title, user_id, create_time, last_post, topic_views, topic_replies, digest)
+            VALUES (#{boardId}, #{topicTitle}, #{userId}, #{createTime}, #{lastPost}, #{views}, #{replies}, #{digest})
+    </insert>
+
+    <!-- 更新一个话题信息-->
+    <update id="update" parameterType="topic">
+        UPDATE t_topic
+        SET board_id = #{boardId}, topic_title = #{topicTitle}, user_id = #{userId}, create_time = #{createTime}, last_post = #{lastPost}, topic_views = #{views}, topic_replies = #{replies}, digest = #{digest}
+        WHERE topic_id = #{topicId}
+    </update>
+
+    <!-- 保存一个话题-->
+    <insert id="save" parameterType="topic" useGeneratedKeys="true" keyProperty="topicId">
+        <choose>
+            <when test="topicId != null">
+                INSERT INTO t_topic(topic_id, board_id, topic_title, user_id, create_time, last_post, topic_views,
+                topic_replies, digest)
+                VALUES (#{topicId}, #{boardId}, #{topicTitle}, #{userId}, #{createTime}, #{lastPost}, #{views},
+                #{replies}, #{digest})
+                ON DUPLICATE KEY
+                UPDATE board_id=#{boardId}, topic_title=#{topicTitle}, user_id=#{userId}, create_time=#{createTime},
+                last_post=#{lastPost}, topic_views=#{views}, topic_replies=#{replies}, digest=#{digest}
+            </when>
+            <otherwise>
+                INSERT INTO t_topic(board_id, topic_title, user_id, create_time, last_post, topic_views, topic_replies,
+                digest)
+                VALUES (#{boardId}, #{topicTitle}, #{user.userId}, #{createTime}, #{lastPost}, #{views}, #{replies},
+                #{digest})
+            </otherwise>
+        </choose>
+    </insert>
+
+    <!-- 删除一个话题-->
+    <delete id="delete" parameterType="topic">
+        DELETE FROM t_topic
+        WHERE topic_id = #{topicId}
+    </delete>
+
+    <!-- *******************自定义方法*********************-->
+    <!-- 获取论坛版块某一页的精华主题帖，按最后回复时间以及精华级别 降序排列-->
+    <select id="getBoardDigestTopics" parameterType="int" resultMap="topicResult">
+        <include refid="selectTopic"/>
+        WHERE A.board_id=#{boardId} AND A.digest=1 ORDER BY lastPost DESC
+    </select>
+    <!-- 获取论坛版块分页的主题帖子-->
+    <select id="getPagedTopics" parameterType="int" resultMap="topicResult">
+        <include refid="selectTopic"/>
+        WHERE A.board_id=#{boardId} ORDER BY lastPost, digest DESC
+    </select>
+    <!-- 根据主题帖标题查询所有模糊匹配的主题帖-->
+    <select id="queryTopicByTitle" parameterType="string" resultMap="topicResult">
+        <include refid="selectTopic"/>
+        WHERE A.topic_title=#{topicTitle}
+    </select>
+</mapper>

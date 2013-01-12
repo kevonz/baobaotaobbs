@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.baobaotao.dao.BoardDao">
+    <!-- 定义公共的SQL语句-->
+    <sql id="selectBoard">
+        SELECT
+            board_id   boardId,
+            board_name boardName,
+            board_desc boardDesc,
+            topic_num  topicNum
+        FROM t_board
+    </sql>
+    <!-- 根据id获取单个版块-->
+    <select id="searchById" resultType="board" parameterType="int">
+        <include refid="selectBoard"/>
+        WHERE board_id = #{id}
+    </select>
+
+    <!-- 获取所有的版块列表-->
+    <select id="searchAll" resultType="board">
+        <include refid="selectBoard"/>
+    </select>
+
+    <!-- 根据条件检索版块-->
+    <select id="search" resultType="board" parameterType="board">
+        <include refid="selectBoard"/>
+        WHERE board_name LIKE #{boardName}
+    </select>
+
+    <!-- 插入一个版块信息-->
+    <insert id="insert" parameterType="board" useGeneratedKeys="true" keyProperty="boardId">
+        INSERT INTO t_board (board_name, board_desc, topic_num)
+            VALUES (#{boardName}, #{boardDesc}, #{topicNum})
+    </insert>
+
+    <!-- 更新一个版块信息-->
+    <update id="update" parameterType="board">
+        UPDATE t_board
+        SET board_name = #{boardName}, board_desc = #{boardDesc}, topic_num = #{topicNum}
+        WHERE board_id = #{boardId}
+    </update>
+
+    <!-- 保存一个版块-->
+    <insert id="save" parameterType="board" useGeneratedKeys="true" keyProperty="boardId">
+        <choose>
+            <when test="boardId != null">
+                INSERT INTO t_board(board_id, board_name, board_desc, topic_num)
+                VALUES (#{boardId}, #{boardName}, #{boardDesc}, #{topicNum})
+                ON DUPLICATE KEY
+                UPDATE board_name=#{boardName}, board_desc=#{boardDesc}, topic_num=#{topicNum}
+            </when>
+            <otherwise>
+                INSERT INTO t_board(board_name, board_desc, topic_num)
+                VALUES (#{boardName}, #{boardDesc}, #{topicNum})
+            </otherwise>
+        </choose>
+    </insert>
+
+    <!-- 删除一个版块-->
+    <delete id="delete" parameterType="board">
+        DELETE FROM t_board
+        WHERE board_id = #{boardId}
+    </delete>
+
+    <!-- ***************自定义方法*************************** -->
+    <!-- 检索版块数量-->
+    <select id="getBoardNum" resultType="_int">
+        SELECT
+            COUNT(*)
+        FROM t_board
+    </select>
+    <!-- 相应版块增加一个管理员 -->
+    <insert id="addManager" parameterType="map">
+        INSERT INTO t_board_manager(board_id, user_id)
+        VALUES (#{boardId}, #{userId})
+        ON DUPLICATE KEY UPDATE
+            board_id = #{boardId}, user_id=#{userId}
+    </insert>
+    <!-- 相应版块删除一个管理员 -->
+    <insert id="removeManager" parameterType="map">
+        DELETE FROM t_board_manager WHERE board_id=#{boardId} AND user_id=#{userId}
+    </insert>
+    <!-- 返回相应版块所有管理员 -->
+    <select id="getAllManagerList" parameterType="_int" resultType="user">
+        SELECT
+            A.user_id    AS userId,
+            A.user_name  AS userName,
+            A.password   AS password,
+            A.user_type  AS userType,
+            A.locked     AS locked,
+            A.credit     AS credit,
+            A.last_visit AS lastVisit,
+            A.last_ip    AS lastIp
+        FROM t_user A
+            LEFT OUTER JOIN t_board_manager B ON A.user_id=B.user_id
+        WHERE
+            B.board_id=#{boardId}
+    </select>
+    <!-- 返回用户所管理的版块列表 -->
+    <select id="getAllBoardList" parameterType="string" resultType="board">
+        SELECT
+            A.board_id   boardId,
+            A.board_name boardName,
+            A.board_desc boardDesc,
+            A.topic_num  topicNum
+        FROM t_board A
+            LEFT OUTER JOIN t_board_manager B ON A.board_id=B.board_id
+            LEFT OUTER JOIN t_user C ON B.user_id=C.user_id
+        WHERE C.user_name=#{username}
+    </select>
+
+</mapper>

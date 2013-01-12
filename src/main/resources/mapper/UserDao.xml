@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.baobaotao.dao.UserDao">
+    <cache
+            eviction="LRU"
+            flushInterval="60000"
+            size="512"
+            readOnly="true"/>
+    <!-- 定义公共的SQL语句-->
+    <sql id="selectUser">
+        SELECT
+            user_id    AS userId,
+            user_name  AS userName,
+            password   AS password,
+            user_type  AS userType,
+            locked     AS locked,
+            credit     AS credit,
+            last_visit AS lastVisit,
+            last_ip    AS lastIp
+        FROM t_user
+    </sql>
+    <!-- 根据id获取单个用户-->
+    <select id="searchById" resultType="user" parameterType="int">
+        <include refid="selectUser"/>
+        WHERE user_id = #{id}
+    </select>
+
+    <!-- 获取所有的用户列表-->
+    <select id="searchAll" resultType="user">
+        <include refid="selectUser"/>
+    </select>
+
+    <!-- 根据条件检索用户-->
+    <select id="search" resultType="user" parameterType="user">
+        <include refid="selectUser"/>
+        WHERE user_name LIKE #{userName}
+    </select>
+
+    <!-- 插入一个用户信息-->
+    <insert id="insert" parameterType="user" useGeneratedKeys="true" keyProperty="userId">
+        INSERT INTO t_user (user_name, password, user_type, locked, credit, last_visit, last_ip)
+            VALUES (#{userName}, #{password}, #{userType}, #{locked}, #{credit}, #{lastVisit}, #{lastIp})
+    </insert>
+
+    <!-- 更新一个用户信息-->
+    <update id="update" parameterType="user">
+        UPDATE t_user
+        SET user_name = #{userName}, password = #{password}, user_type = #{userType}, locked = #{locked}, credit = #{credit}, last_visit = #{lastVisit}, last_ip = #{lastIp}
+        WHERE user_id = #{userId}
+    </update>
+
+    <!-- 保存一个用户-->
+    <insert id="save" parameterType="user" useGeneratedKeys="true" keyProperty="userId">
+        <choose>
+            <when test="userId != null">
+                INSERT INTO t_user(user_id, user_name, password, user_type, locked, credit, last_visit, last_ip)
+                VALUES (#{userId}, #{userName}, #{password}, #{userType}, #{locked}, #{credit}, #{lastVisit}, #{lastIp})
+                ON DUPLICATE KEY
+                UPDATE user_name=#{userName}, password=#{password}, user_type=#{userType}, locked=#{locked},
+                credit=#{credit}, last_visit=#{lastVisit}, last_ip=#{lastIp}
+            </when>
+            <otherwise>
+                INSERT INTO t_user(user_name, password, user_type, locked, credit, last_visit, last_ip)
+                VALUES (#{userName}, #{password}, #{userType}, #{locked}, #{credit}, #{lastVisit}, #{lastIp})
+            </otherwise>
+        </choose>
+    </insert>
+
+    <!-- 删除一个用户-->
+    <delete id="delete" parameterType="user">
+        DELETE FROM t_user
+        WHERE user_id = #{userId}
+    </delete>
+
+    <!-- *************自定义方法*************-->
+    <select id="getUserByUserName" resultType="user" parameterType="string">
+        <include refid="selectUser"/>
+        WHERE user_name=#{userName}
+    </select>
+    <select id="queryUserByUserName" resultType="user" parameterType="string">
+        <include refid="selectUser"/>
+        WHERE user_name LIKE '%'||#{userName}||'%'
+    </select>
+</mapper>
